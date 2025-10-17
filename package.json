@@ -1,7 +1,7 @@
 {
   "name": "michatsocial",
   "version": "1.0.0",
-  "description": "",
+  "description": "mi primer chat social con node.js",
   "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -12,5 +12,13 @@
   "dependencies": {
     "express": "^5.1.0",
     "socket.io": "^4.8.1"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sarabenamerr31/MiChatSocial.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sarabenamerr31/MiChatSocial/issues"
+  },
+  "homepage": "https://github.com/sarabenamerr31/MiChatSocial#readme"
 }
