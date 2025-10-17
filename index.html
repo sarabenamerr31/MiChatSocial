@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mi Chat Social (GMS)</title>
+    <style>
+        /* CSS COMPLETO PARA EL DISEÑO DE DOS COLUMNAS */
+        body { margin: 0; padding-bottom: 3rem; font-family: sans-serif; display: flex; }
+
+        /* Área de Login */
+        #login-area { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0, 0, 0, 0.9); 
+            z-index: 1000; 
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            text-align: center;
+        }
+        #login-area input {
+            padding: 10px;
+            margin: 10px;
+            width: 80%;
+            max-width: 300px;
+            border: none;
+            border-radius: 5px;
+        }
+        #login-area button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            background: #28a745;
+            color: white;
+            cursor: pointer;
+        }
+
+
+        /* Estilo del Contenedor del Chat (La Columna Izquierda) */
+        #chat-main { display: none; width: 100%; height: 100%; } 
+        #chat-container { width: 75%; height: 100vh; overflow-y: scroll; border-right: 1px solid #ddd; padding-top: 10px; }
+        
+        /* Estilo del Sidebar de Usuarios (La Columna Derecha) */
+        #sidebar { width: 25%; height: 100vh; background: #f8f8f8; padding: 10px; box-sizing: border-box; position: fixed; right: 0; top: 0; }
+        #sidebar h3 { margin-top: 0; color: #555; }
+        #user-list { list-style-type: none; padding: 0; }
+        #user-list li { padding: 5px 0; border-bottom: 1px dotted #ccc; font-size: 0.9em; font-weight: bold; color: #333; cursor: pointer;} 
+
+        /* Mensajes del Chat */
+        #messages { list-style-type: none; margin: 0; padding: 0 10px; }
+        #messages li { padding: 5px 0; }
+        #messages li:nth-child(odd) { background: #fafafa; }
+        
+        /* Nuevo: Estilo para mensajes privados y archivos */
+        .private-message { background: #fff0f0; color: #cc0000; font-weight: bold; }
+        .youtube-message { background: #ffeded; padding: 10px; border-left: 3px solid red; } 
+        
+        /* Estilo para la caja de texto y botón */
+        form { background: #333; padding: 3px; position: fixed; bottom: 0; left: 0; right: 25%; display: flex; height: 3rem; box-sizing: border-box; }
+        #m { border: none; padding: 0 1rem; flex-grow: 1; border-radius: 2rem; margin: 0.25rem; }
+        #m:focus { outline: none; }
+        
+        /* Botones de acción (Archivo y YouTube) */
+        .action-button {
+            border: none;
+            padding: 0 1rem;
+            margin: 0.25rem;
+            border-radius: 3px;
+            color: black;
+            cursor: pointer;
+            line-height: 2.5rem; 
+            font-weight: bold;
+        }
+
+        #file-label { background: #ffc107; } 
+        #media-button { background: #dc3545; color: white; } 
+
+        button { background: #28a745; border: none; padding: 0 1rem; margin: 0.25rem; border-radius: 3px; color: white; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="login-area">
+        <h1>¡Bienvenido/a al Chat Social!</h1>
+        <p>Ingresa tu nombre para comenzar a chatear.</p>
+        <input type="text" id="username-input" placeholder="Tu Nombre de Usuario">
+        <button id="start-chat-button">Entrar al Chat</button>
+    </div>
+
+    <div id="chat-main"> 
+        <div id="chat-container">
+            <ul id="messages"></ul>
+        </div>
+
+        <div id="sidebar">
+            <h3>👥 Usuarios Conectados (<span id="num-users">0</span>)</h3>
+            <ul id="user-list">
+            </ul>
+        </div>
+
+        <form action="">
+            <input id="recipient" value="general" type="hidden">
+            <input type="file" id="file-input" accept="image/*,video/*" />
+            <label for="file-input" class="action-button" id="file-label">🖼️ Archivo</label>
+            <button type="button" class="action-button" id="media-button" onclick="promptYouTubeUrl()">▶️ YouTube</button>
+            <input id="m" autocomplete="off" placeholder="Escribe un mensaje público (general)" /><button>Enviar</button>
+        </form>
+    </div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script>
+    var socket; // Inicializamos la variable socket sin valor
+    var username = ''; 
+
+    // Función para procesar la URL de YouTube y extraer el ID
+    function getYouTubeId(url) {
+        var regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        var match = url.match(regExp);
+        return (match && match[2].length == 11) ? match[2] : null;
+    }
+    window.promptYouTubeUrl = function() {
+        if (!username) return alert("Por favor, ingresa tu nombre antes de compartir.");
+        var url = prompt('Pega el enlace de YouTube aquí:');
+        if (url) {
+            var videoId = getYouTubeId(url);
+            if (videoId) {
+                var dataToSend = { 
+                    msg: 'YouTubeShare', 
+                    recipient: $('#recipient').val(),
+                    videoId: videoId
+                };
+                socket.emit('chat message', dataToSend);
+            } else {
+                alert('Enlace de YouTube no válido.');
+            }
+        }
+    }
+
+    // ===================================
+    // 1. LÓGICA DE LOGIN INTEGRADO
+    // ===================================
+    $('#chat-main').hide(); // Aseguramos que el chat esté oculto al inicio
+
+    $('#start-chat-button').click(function() {
+        let inputName = $('#username-input').val().trim();
+        if (inputName) {
+            username = inputName;
+            
+            // CORRECCIÓN CLAVE: Conectamos Socket.IO SÓLO después de tener el nombre
+            socket = io(); 
+            
+            // Una vez conectado, enviamos el nombre y mostramos el chat
+            socket.on('connect', function() {
+                $('#login-area').hide(); // Oculta el login
+                $('#chat-main').show();  // Muestra el chat
+                socket.emit('add user', username); // Envía el nombre al servidor
+            });
+
+            // Asignar los eventos de chat solo después de la conexión
+            setupChatEvents();
+
+        } else {
+            alert("El nombre no puede estar vacío.");
+        }
+    });
+
+    // Permitir Enter para iniciar
+    $('#username-input').keypress(function(e) {
+        if (e.which === 13) { 
+            $('#start-chat-button').click();
+        }
+    });
+    
+    // ===================================
+    // 2. FUNCIÓN DE EVENTOS DE CHAT (REORGANIZADO)
+    // ===================================
+    function setupChatEvents() {
+        $('form').submit(function(e) {
+            e.preventDefault(); 
+            var message = $('#m').val();
+            var recipient = $('#recipient').val(); 
+            var file = $('#file-input')[0].files[0]; 
+
+            if (!username) return; 
+
+            if (file) {
+                let fileName = file.name;
+                let notificationMsg = '📤 ha enviado un archivo (' + fileName + ')';
+
+                socket.emit('chat message', { msg: notificationMsg, recipient: recipient });
+                
+                $('#file-input').val(''); 
+            } else if (message) {
+                var dataToSend = { msg: message, recipient: recipient };
+                socket.emit('chat message', dataToSend);
+            }
+
+            $('#m').val(''); 
+            return false;
+        });
+
+        socket.on('chat message', function(data) {
+            if (typeof data === 'string') {
+                $('#messages').append($('<li>').text(data));
+            } else if (data.videoId) {
+                let iframe = `<iframe width="250" height="150" src="https://www.youtube.com/embed/${data.videoId}" frameborder="0" allowfullscreen></iframe>`;
+                let user = data.sender || 'Usuario';
+                
+                $('#messages').append($('<li>').addClass('youtube-message').html(`<b>${user} ha compartido un video:</b><br>${iframe}`));
+            }
+            
+            $("#chat-container").scrollTop($("#chat-container")[0].scrollHeight);
+        });
+
+        socket.on('private message', function(data) {
+            $('#messages').append($('<li>').addClass('private-message').text(data.msg));
+            $("#chat-container").scrollTop($("#chat-container")[0].scrollHeight);
+        });
+
+        // Eventos del Servidor
+        socket.on('login', function(data) {
+            $('#messages').append($('<li>').text('*** ¡Bienvenido/a al chat, ' + username + '! Hay ' + data.numUsers + ' usuarios conectados. ***'));
+            updateUsers(data.users, data.numUsers);
+        });
+
+        socket.on('user joined', function(data) {
+            $('#messages').append($('<li>').text('*** ' + data.username + ' se ha unido al chat. ***'));
+            updateUsers(data.users, data.numUsers);
+        });
+
+        socket.on('user left', function(data) {
+            $('#messages').append($('<li>').text('*** ' + data.username + ' ha dejado el chat. ***'));
+            updateUsers(data.users, data.numUsers);
+            if ($('#recipient').val() === data.username) {
+                 setRecipient('general');
+            }
+        });
+        
+        // Inicializar el destinatario como "general" al cargar (después de la conexión)
+        setRecipient('general'); 
+    }
+
+
+    // ===================================
+    // 3. LÓGICA DE USUARIOS Y DM (SIN CAMBIOS)
+    // ===================================
+
+    function updateUsers(users, numUsers) {
+        $('#user-list').empty(); 
+        $('#num-users').text(numUsers); 
+
+        // Botón para chat general
+        $('#user-list').append($('<li>').text('Chat General').attr('data-user', 'general').click(function() {
+            setRecipient('general');
+        }));
+        
+        users.forEach(function(user) {
+            if (user !== username) { 
+                $('#user-list').append($('<li>').text(user).attr('data-user', user).click(function() {
+                    setRecipient(user);
+                }));
+            }
+        });
+    }
+
+    function setRecipient(recipient) {
+        $('#recipient').val(recipient); 
+        
+        if (recipient === 'general') {
+            $('#m').attr('placeholder', 'Escribe un mensaje público (general)');
+        } else {
+            $('#m').attr('placeholder', 'DM para ' + recipient);
+        }
+
+        // Resalta el usuario seleccionado en la lista
+        $('#user-list li').removeClass('selected');
+        $(`[data-user="${recipient}"]`).addClass('selected');
+    }
+
+</script>
+
+</body>
+</html>
