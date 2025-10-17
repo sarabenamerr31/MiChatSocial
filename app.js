@@ -7,7 +7,7 @@ const server = http.createServer(app);
 const io = require('socket.io')(server); 
 
 // Ultimo cambio para activar Webhook - 2025-10-17 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html');
@@ -96,5 +96,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Servidor corriendo en: http://localhost:${PORT}`);
+  console.log(`Servidor corriendo en el puerto: ${PORT}`);
 });
