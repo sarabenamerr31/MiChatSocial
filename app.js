@@ -4,8 +4,9 @@ const express = require('express');
 const app = express();
 const http = require('http');
 const server = http.createServer(app);
-const io = require('socket.io')(server);
+const io = require('socket.io')(server); 
 
+// Ultimo cambio para activar Webhook - 2025-10-17 
 const PORT = 3000;
 
 app.get('/', (req, res) => {
@@ -13,24 +14,24 @@ app.get('/', (req, res) => {
 });
 
 // LÓGICA DE USUARIOS Y CHAT
-let usernames = {}; // Objeto para guardar {nombre: socket.id}
-let numUsers = 0;  
+let usernames = {}; 
+let numUsers = 0;   
 
 io.on('connection', (socket) => {
-    let addedUser = false;
+    let addedUser = false; 
 
     // Almacenamiento del nombre de usuario y lista de usuarios...
     socket.on('add user', (username) => {
         if (addedUser) return;
-       
+        
         socket.username = username;
-        usernames[username] = socket.id;
+        usernames[username] = socket.id; 
         ++numUsers;
         addedUser = true;
 
         socket.emit('login', {
             numUsers: numUsers,
-            users: Object.keys(usernames)
+            users: Object.keys(usernames) 
         });
 
         socket.broadcast.emit('user joined', {
@@ -40,24 +41,20 @@ io.on('connection', (socket) => {
         });
     });
 
-    // ===========================================
-    // CORRECCIÓN CLAVE: Manejar Mensajes (incluyendo YouTube)
-    // ===========================================
+    // Manejar Mensajes (incluyendo YouTube)
     socket.on('chat message', (data) => {
-       
+        let fullMessage = socket.username + ': ' + data.msg;
+
         // Si el mensaje es para compartir YouTube
         if (data.msg === 'YouTubeShare' && data.videoId) {
-            let youtubeData = {
-                videoId: data.videoId,
-                sender: socket.username
+            let youtubeData = { 
+                videoId: data.videoId, 
+                sender: socket.username 
             };
-           
-            // Reenviamos el OBJETO de YouTube a todos los usuarios
+            
             io.emit('chat message', youtubeData);
-            return; // Detenemos la función aquí
+            return; 
         }
-
-        let fullMessage = socket.username + ': ' + data.msg;
 
         if (data.recipient && data.recipient !== 'general') {
             // MENSAJE PRIVADO (DM)
@@ -65,13 +62,11 @@ io.on('connection', (socket) => {
             let senderId = socket.id;
 
             if (recipientId) {
-                // Enviamos el mensaje al RECEPTOR
                 io.to(recipientId).emit('private message', {
                     msg: `(DM de ${socket.username}): ${data.msg}`,
                     sender: socket.username
                 });
-               
-                // Enviamos una copia al EMISOR (para que vea que se envió)
+                
                 io.to(senderId).emit('private message', {
                     msg: `(DM para ${data.recipient}): ${data.msg}`,
                     sender: socket.username
@@ -88,7 +83,7 @@ io.on('connection', (socket) => {
     // Desconexión
     socket.on('disconnect', () => {
         if (addedUser) {
-            delete usernames[socket.username];
+            delete usernames[socket.username]; 
             --numUsers;
 
             socket.broadcast.emit('user left', {
