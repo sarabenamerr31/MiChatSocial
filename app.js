@@ -4,18 +4,20 @@ const express = require('express');
 const app = express();
 const http = require('http');
 const server = http.createServer(app);
-const io = require('socket.io')(server); 
-const axios = require('axios'); 
+const io = require('socket.io')(server);
+const axios = require('axios');
 
 // ----------------------------------------------------
 // VARIABLES VITALES (SE SEGURIDAD Y ENTORNO)
 // ----------------------------------------------------
 // Lectura segura del puerto de Render (CORRECCIÓN FINAL)
-const PORT = process.env.PORT || 3000; 
+const PORT = process.env.PORT || 3000;
 
 // Lectura segura de la clave secreta de Render
+// NOTA: Si no la has metido en Render, estará vacía, pero el código NO fallará el inicio.
 const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET;
-const SCORE_UMBRAL = 0.5; 
+const SCORE_UMBRAL = 0.5;
+const USER_VERIFIED = new Set(); // Para rastrear usuarios verificados
 
 // Envía el archivo index.html
 app.get('/', (req, res) => {
@@ -23,72 +25,78 @@ app.get('/', (req, res) => {
 });
 
 // LÓGICA DE USUARIOS Y CHAT
-let usernames = {}; 
-let numUsers = 0;   
+let usernames = {};
+let numUsers = 0;  
 
 io.on('connection', (socket) => {
-    let addedUser = false; 
+    let addedUser = false;
 
     // FUNCIÓN PRINCIPAL DE LOGIN Y VERIFICACIÓN
-    socket.on('add user', async (usernameData) => {
+    socket.on('add user', async (data) => {
         if (addedUser) return;
-        
-        const { username, token } = usernameData;
-        
-        // 1. COMPROBACIÓN DE SEGURIDAD
-        if (!RECAPTCHA_SECRET || !token) {
-            return socket.emit('login error', 'Error de configuración o falta de token.');
-        }
+       
+        const { username, token } = data;
+       
+        // 1. VERIFICACIÓN DE RECAPTCHA (Lógica para que el servidor no se rompa si la clave está mal)
+        if (!RECAPTCHA_SECRET) {
+            // Si la clave no está en Render, permitimos el acceso pero BLOQUEAMOS los mensajes.
+            console.warn(`[SEGURIDAD] Clave Secreta no configurada. Permitiendo acceso, bloqueando mensajes.`);
+        } else {
+            try {
+                // 2. PEDIR LA VERIFICACIÓN A GOOGLE
+                const googleUrl = 'https://www.google.com/recaptcha/api/siteverify';
+               
+                const response = await axios.post(googleUrl, null, {
+                    params: { secret: RECAPTCHA_SECRET, response: token }
+                });
 
-        try {
-            // 2. PEDIR LA VERIFICACIÓN A GOOGLE
-            const googleUrl = 'https://www.google.com/recaptcha/api/siteverify';
-            
-            const response = await axios.post(googleUrl, null, {
-                params: {
-                    secret: RECAPTCHA_SECRET, 
-                    response: token
+                const { success, score } = response.data;
+              
+                // 3. REGLA DE SEGURIDAD: Bloqueo si no es exitoso o la puntuación es baja
+                if (!success || score < SCORE_UMBRAL) {
+                    console.warn(`[SEGURIDAD] Bloqueo de mensaje por bot. Score: ${score}`);
+                    return socket.emit('login error', `Verificación fallida. Score bajo. (${score})`);
                 }
-            });
+               
+                // Si la verificación es exitosa:
+                USER_VERIFIED.add(socket.id);
 
-            const { success, score } = response.data;
-           
-            // 3. REGLA DE SEGURIDAD: Bloqueo si no es exitoso o la puntuación es baja
-            if (!success || score < SCORE_UMBRAL) {
-                console.warn(`[SEGURIDAD] Bloqueo de bot. Score: ${score}`);
-                return socket.emit('login error', `Verificación de seguridad fallida. Puntuación: ${score}`);
+            } catch (error) {
+                console.error('Error al verificar reCAPTCHA:', error.message);
+                return socket.emit('login error', 'Error interno de verificación. No podrás chatear.');
             }
-           
-            // 4. VERIFICACIÓN EXITOSA: Iniciar Sesión
-            if (usernames[username]) { 
-                 return socket.emit('login error', 'El nombre de usuario ya está en uso.');
-            }
-
-            socket.username = username;
-            usernames[username] = socket.id;
-            ++numUsers;
-            addedUser = true;
-
-            socket.emit('login', {
-                numUsers: numUsers,
-                users: Object.keys(usernames)
-            });
-
-            socket.broadcast.emit('user joined', {
-                username: socket.username,
-                numUsers: numUsers,
-                users: Object.keys(usernames)
-            });
-
-        } catch (error) {
-            console.error('Error al verificar reCAPTCHA:', error.message);
-            return socket.emit('login error', 'Error interno del servidor durante la verificación.');
         }
-    }); // <--- ¡La llave de cierre estaba aquí! Arreglado.
-    
-    // RESTO DE LA LÓGICA DEL CHAT (MENSAJES PÚBLICOS/PRIVADOS Y DESCONEXIÓN)
+       
+        // 4. INICIO DE SESIÓN ESTÁNDAR
+        if (usernames[username]) {
+             return socket.emit('login error', 'El nombre de usuario ya está en uso.');
+        }
+
+        socket.username = username;
+        usernames[username] = socket.id;
+        ++numUsers;
+        addedUser = true;
+
+        socket.emit('login', {
+            numUsers: numUsers,
+            users: Object.keys(usernames)
+        });
+
+        socket.broadcast.emit('user joined', {
+            username: socket.username,
+            numUsers: numUsers,
+            users: Object.keys(usernames)
+        });
+    });
+   
+    // LÓGICA DE CHAT: BLOQUEAR SI NO ESTÁ VERIFICADO
     socket.on('chat message', (data) => {
-        if (!socket.username) return; 
+        // 🛑 BLOQUEO DE SEGURIDAD: SÓLO CHATEA SI ESTÁS EN LA LISTA DE VERIFICADOS
+        if (RECAPTCHA_SECRET && !USER_VERIFIED.has(socket.id)) {
+            return socket.emit('chat message', { error: 'Debes pasar la verificación reCAPTCHA para chatear.' });
+        }
+       
+        // Lógica de mensajes y DM...
         let fullMessage = socket.username + ': ' + data.msg;
         if (data.recipient && data.recipient !== 'general') {
             let recipientId = usernames[data.recipient];
@@ -106,7 +114,8 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         if (addedUser) {
-            delete usernames[socket.username]; 
+            USER_VERIFIED.delete(socket.id);
+            delete usernames[socket.username];
             --numUsers;
             socket.broadcast.emit('user left', {
                 username: socket.username,
