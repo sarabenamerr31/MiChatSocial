@@ -97,8 +97,8 @@
 <script>
     var socket;
     var username = '';
-    const RECAPTCHA_SITE_KEY = '6Lf-ju4rAAAAAH6B-ADkX-ttdN-49MX2HnolYSFU'; // TU CLAVE PÚBLICA
-
+    const RECAPTCHA_SITE_KEY = '6Lf-ju4rAAAAAH6B-ADkX-ttdN-49MX2HnolYSFU';
+   
     // ===================================
     // 1. LÓGICA DE LOGIN CON RECAPTCHA V3
     // ===================================
@@ -123,7 +123,10 @@
                 // 2. Conectamos Socket.IO
                 socket = io();
                
-                // 3. Enviamos el nombre Y el token de reCAPTCHA
+                // 3. Configuramos todos los eventos del chat
+                setupChatEvents(socket);
+
+                // 4. Enviamos el nombre Y el token de reCAPTCHA
                 socket.on('connect', function() {
                     $('#login-area').hide();
                     $('#chat-main').show(); 
@@ -133,8 +136,6 @@
                         token: token // Enviamos el token para que el servidor lo verifique
                     });
                 });
-               
-                setupChatEvents();
             });
         });
     });
@@ -157,7 +158,7 @@
     // 2. FUNCIÓN DE EVENTOS DE CHAT (LÓGICA)
     // ===================================
 
-    function setupChatEvents() {
+    function setupChatEvents(socket) {
         $('form').submit(function(e) {
             e.preventDefault();
             var message = $('#m').val();
@@ -195,6 +196,7 @@
             updateUsers(data.users, data.numUsers);
         });
 
+        // ESTE EVENTO DEBERÍA ARREGLAR LA LISTA
         socket.on('user joined', function(data) {
             $('#messages').append($('<li>').text('*** ' + data.username + ' se ha unido al chat. ***'));
             updateUsers(data.users, data.numUsers);
