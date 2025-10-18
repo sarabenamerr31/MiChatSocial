@@ -1,246 +1,223 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Mi Chat Social (GMS)</title>
-    <script src="https://www.google.com/recaptcha/api.js?render=6Lf-ju4rAAAAAH6B-ADkX-ttdN-49MX2HnolYSFU"></script>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Chat Social</title>
     <style>
-        /* CSS COMPLETO PARA EL DISEÑO DE LOGIN Y CHAT */
-        body { margin: 0; padding-bottom: 3rem; font-family: sans-serif; display: flex; }
+        /* Estilos CSS simplificados para el chat */
+        body { margin: 0; padding: 0; background-color: #2c3e50; font-family: Arial, sans-serif; color: #ecf0f1; display: flex; height: 100vh; }
+        #chat-container { display: flex; flex-grow: 1; }
+        #user-list { width: 150px; background: #34495e; padding: 10px; overflow-y: auto; }
+        #user-list h3 { margin-top: 0; color: #e74c3c; }
+        #user-list ul { list-style: none; padding: 0; }
+        #user-list li { padding: 5px 0; border-bottom: 1px solid #4a627a; cursor: pointer; }
+        #main-chat { flex-grow: 1; display: flex; flex-direction: column; background: #2c3e50; }
+        #messages { list-style-type: none; margin: 0; padding: 10px; flex-grow: 1; overflow-y: auto; background: #34495e; }
+        #messages li { padding: 5px 10px; border-bottom: 1px solid #2c3e50; }
+        .dm-message { color: #f1c40f; font-style: italic; }
+        .system-message { color: #95a5a6; text-align: center; }
+        .chat-form { padding: 10px; background: #2c3e50; display: flex; border-top: 1px solid #34495e; }
+        .chat-form input { flex-grow: 1; padding: 10px; border: none; border-radius: 4px 0 0 4px; background: #ecf0f1; color: #2c3e50; }
+        .chat-form button { padding: 10px; background: #1abc9c; border: none; color: white; border-radius: 0 4px 4px 0; cursor: pointer; }
+        .chat-form button:hover { background: #16a085; }
+       
+        /* Estilos de Login */
+        #login-screen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #2c3e50; display: flex; justify-content: center; align-items: center; flex-direction: column; z-index: 1000; }
+        #login-box { background: #34495e; padding: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5); text-align: center; }
+        #login-box input { padding: 10px; margin-bottom: 15px; width: 250px; border: 1px solid #2c3e50; border-radius: 4px; }
+        #login-box button { background: #3498db; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+        #login-box button:hover { background: #2980b9; }
 
-        /* Área de Login */
-        #login-area { 
-            position: fixed; 
-            top: 0; 
-            left: 0; 
-            width: 100%; 
-            height: 100%; 
-            background: rgba(0, 0, 0, 0.9); 
-            z-index: 1000; 
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            color: white;
-            text-align: center;
+        /* Media Queries para Responsividad Móvil */
+        @media (max-width: 600px) {
+            #chat-container { flex-direction: column; }
+            #user-list { width: 100%; height: 100px; order: 2; border-bottom: none; }
+            #user-list h3 { display: none; }
+            #user-list ul { display: flex; overflow-x: auto; white-space: nowrap; }
+            #user-list li { padding: 5px 10px; margin-right: 10px; border-bottom: none; }
+            #main-chat { order: 1; }
         }
-        #login-area input {
-            padding: 10px;
-            margin: 10px;
-            width: 80%;
-            max-width: 300px;
-            border: none;
-            border-radius: 5px;
-        }
-        #login-area button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            background: #28a745;
-            color: white;
-            cursor: pointer;
-            margin-top: 10px;
-        }
-        .error-message { color: yellow; background: red; padding: 5px; margin-top: 10px;}
-
-        /* Estilo del Contenedor del Chat (Oculto al inicio) */
-        #chat-main { display: none; width: 100%; height: 100%; } 
-        #chat-container { width: 75%; height: 100vh; overflow-y: scroll; border-right: 1px solid #ddd; padding-top: 10px; }
-        
-        /* Estilo del Sidebar de Usuarios */
-        #sidebar { width: 25%; height: 100vh; background: #f8f8f8; padding: 10px; box-sizing: border-box; position: fixed; right: 0; top: 0; }
-        #sidebar h3 { margin-top: 0; color: #555; }
-        #user-list { list-style-type: none; padding: 0; }
-        #user-list li { padding: 5px 0; border-bottom: 1px dotted #ccc; font-size: 0.9em; font-weight: bold; color: #333; cursor: pointer;} 
-
-        /* Estilo de Mensajes */
-        #messages { list-style-type: none; margin: 0; padding: 0 10px; }
-        #messages li { padding: 5px 0; }
-        #messages li:nth-child(odd) { background: #fafafa; }
-        .private-message { background: #fff0f0; color: #cc0000; font-weight: bold; }
-        
-        /* Estilo de la caja de texto y botón */
-        form { background: #333; padding: 3px; position: fixed; bottom: 0; left: 0; right: 25%; display: flex; height: 3rem; box-sizing: border-box; }
-        #m { border: none; padding: 0 1rem; flex-grow: 1; border-radius: 2rem; margin: 0.25rem; }
-        #m:focus { outline: none; }
-        button { background: #28a745; border: none; padding: 0 1rem; margin: 0.25rem; border-radius: 3px; color: white; cursor: pointer; }
     </style>
+    <script src="https://www.google.com/recaptcha/api.js?render=TU_CLAVE_DEL_SITIO_PUBLICA"></script>
 </head>
 <body>
-    <div id="login-area">
-        <h1>¡Bienvenido/a al Chat Social!</h1>
-        <p>Ingresa tu nombre para comenzar a chatear.</p>
-        <input type="text" id="username-input" placeholder="Tu Nombre de Usuario">
-        <button id="start-chat-button">Entrar al Chat</button>
-        <div id="login-error-message" class="error-message" style="display:none;"></div>
+   
+    <div id="login-screen">
+        <div id="login-box">
+            <h2>Bienvenido al Chat</h2>
+            <input id="username" autocomplete="off" placeholder="Introduce tu nombre de usuario" />
+            <button onclick="verificarYUnirse()">Entrar al Chat</button>
+        </div>
     </div>
 
-    <div id="chat-main"> 
-        <div id="chat-container">
+    <div id="chat-container" style="display: none;">
+        <div id="user-list">
+            <h3>Usuarios Conectados (<span id="user-count">0</span>)</h3>
+            <ul id="users"></ul>
+        </div>
+
+        <div id="main-chat">
             <ul id="messages"></ul>
+            <form class="chat-form" onsubmit="sendMessage(event)">
+                <button type="button" onclick="showFileOptions()">🖼️ Archivo</button>
+                <input id="m" autocomplete="off" placeholder="Escribe un mensaje..." />
+                <button>Enviar</button>
+            </form>
         </div>
-
-        <div id="sidebar">
-            <h3>👥 Usuarios Conectados (<span id="num-users">0</span>)</h3>
-            <ul id="user-list">
-            </ul>
-        </div>
-
-        <form action="">
-            <input id="recipient" value="general" type="hidden">
-            <input id="m" autocomplete="off" placeholder="Escribe un mensaje público (general)" /><button>Enviar</button>
-        </form>
     </div>
 
-<script src="/socket.io/socket.io.js"></script>
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script>
-    var socket; 
-    var username = ''; 
-    const RECAPTCHA_SITE_KEY = '6Lf-ju4rAAAAAH6B-ADkX-ttdN-49MX2HnolYSFU'; 
-    
-    // ===================================
-    // 1. LÓGICA DE LOGIN CON RECAPTCHA V3
-    // ===================================
-
-    $('#chat-main').hide(); 
-
-    $('#start-chat-button').click(function() {
-        $('#login-error-message').hide();
-        const inputName = $('#username-input').val().trim();
-        
-        if (!inputName) {
-            $('#login-error-message').text("Por favor, ingresa tu nombre.").show();
-            return;
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let currentUsername = '';
+        let recipient = 'general'; // Por defecto a chat general
+       
+        // Función para cambiar el destinatario (DM)
+        function changeRecipient(newRecipient) {
+            recipient = newRecipient;
+            // Indicación visual del destinatario actual
+            document.getElementById('m').placeholder = (newRecipient === 'general')
+                ? 'Escribe un mensaje...'
+                : `(DM para ${newRecipient}):`;
         }
 
-        // 1. Ejecutar reCAPTCHA v3 para obtener el token de seguridad
-        grecaptcha.ready(function() {
-            grecaptcha.execute(RECAPTCHA_SITE_KEY, {action: 'login'})
-            .then(function(token) {
-                username = inputName;
-                
-                // 2. Conectamos Socket.IO INMEDIATAMENTE
-                socket = io(); 
-                
-                // 3. Configuramos todos los eventos de escucha del chat
-                setupChatEvents(socket); 
+        // 2. CORRECCIÓN DE NOMBRE EN LISTA DE USUARIOS
+        function updateUsers(users) {
+            const userList = document.getElementById('users');
+            userList.innerHTML = '';
+           
+            // Añadir la opción de chat general
+            const generalLi = document.createElement('li');
+            generalLi.textContent = 'Chat General';
+            generalLi.style.fontWeight = (recipient === 'general') ? 'bold' : 'normal';
+            generalLi.onclick = () => changeRecipient('general');
+            userList.appendChild(generalLi);
+           
+            // Añadir los usuarios conectados
+            users.forEach(user => {
+                // Omitir tu propio nombre
+                if (user !== currentUsername) {
+                    const li = document.createElement('li');
+                    li.textContent = user;
+                    li.style.fontWeight = (recipient === user) ? 'bold' : 'normal';
+                    li.onclick = () => changeRecipient(user);
+                    userList.appendChild(li);
+                }
+            });
+            document.getElementById('user-count').textContent = users.length;
+        }
 
-                // 4. Esperamos la conexión y enviamos el token
-                socket.on('connect', function() {
-                    $('#login-area').hide(); 
-                    $('#chat-main').show();  
-                    
-                    socket.emit('add user', {
-                        username: username,
-                        token: token // Enviamos el token para que el servidor lo verifique
-                    });
+        // LÓGICA DE LOGIN Y SEGURIDAD RECAPTCHA
+        function verificarYUnirse() {
+            const usernameInput = document.getElementById('username').value.trim();
+            if (!usernameInput) {
+                alert('Por favor, introduce un nombre de usuario.');
+                return;
+            }
+
+            // Aquí se ejecuta la verificación de reCAPTCHA
+            grecaptcha.ready(function() {
+                grecaptcha.execute('TU_CLAVE_DEL_SITIO_PUBLICA', {action: 'login'}).then(function(token) {
+                    currentUsername = usernameInput;
+                    socket.emit('add user', { username: currentUsername, token: token });
                 });
             });
-        });
-    });
-
-    // Manejo de errores de inicio de sesión enviados desde el servidor (app.js)
-    socket.on('login error', (msg) => {
-        $('#login-error-message').text(msg).show();
-        $('#chat-main').hide();
-        $('#login-area').show(); 
-    });
-
-
-    // Permitir Enter para iniciar
-    $('#username-input').keypress(function(e) {
-        if (e.which === 13) { 
-            $('#start-chat-button').click();
         }
-    });
-    
-    // ===================================
-    // 2. FUNCIÓN DE EVENTOS DE CHAT (LÓGICA)
-    // ===================================
+       
+        // 3. CÓDIGO PARA ENVÍO DE FOTOS/ARCHIVOS (Mejora: función integrada de archivo)
+        function showFileOptions() {
+            // Esto solo es una simulación de envío, la implementación completa requiere más código del lado del servidor.
+            // Para mantener la simplicidad, mostraremos la notificación de envío.
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.onchange = function(e) {
+                const fileName = e.target.files[0].name;
+                const confirmSend = confirm(`¿Quieres notificar que has enviado el archivo: ${fileName}?`);
+                if (confirmSend) {
+                    // Envía un mensaje especial al servidor
+                    socket.emit('chat message', { msg: `📤 ha compartido un archivo: ${fileName}.`, recipient: recipient });
+                }
+            };
+            fileInput.click();
+        }
 
-    function setupChatEvents(socket) {
-        $('form').submit(function(e) {
-            e.preventDefault(); 
-            var message = $('#m').val();
-            var recipient = $('#recipient').val(); 
-
-            if (!username) return; 
-
-            if (message) {
-                var dataToSend = { msg: message, recipient: recipient };
-                socket.emit('chat message', dataToSend);
+        // LÓGICA DE MENSAJES Y EVENTOS
+        function sendMessage(e) {
+            e.preventDefault();
+            const input = document.getElementById('m');
+            const msg = input.value.trim();
+            if (msg) {
+                socket.emit('chat message', { msg: msg, recipient: recipient });
+                input.value = '';
             }
+        }
 
-            $('#m').val(''); 
-            return false;
-        });
-
-        socket.on('chat message', function(msg) {
-            if (typeof msg === 'string') {
-                $('#messages').append($('<li>').text(msg));
-            } else if (msg.error) {
-                $('#messages').append($('<li>').addClass('error-message').text('*** ERROR: ' + msg.error + ' ***'));
-            }
-            
-            $("#chat-container").scrollTop($("#chat-container")[0].scrollHeight);
-        });
-
-        socket.on('private message', function(data) {
-            $('#messages').append($('<li>').addClass('private-message').text(data.msg));
-            $("#chat-container").scrollTop($("#chat-container")[0].scrollHeight);
-        });
-
-        // Eventos del Servidor
         socket.on('login', function(data) {
-            $('#messages').append($('<li>').text('*** ¡Bienvenido/a al chat, ' + username + '! Hay ' + data.numUsers + ' usuarios conectados. ***'));
-            updateUsers(data.users, data.numUsers);
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('chat-container').style.display = 'flex';
+            updateUsers(data.users);
         });
 
-        // ESTE EVENTO ARREGLA LA LISTA
         socket.on('user joined', function(data) {
-            $('#messages').append($('<li>').text('*** ' + data.username + ' se ha unido al chat. ***'));
-            updateUsers(data.users, data.numUsers);
+            const item = document.createElement('li');
+            item.className = 'system-message';
+            item.textContent = data.username + ' se ha unido al chat.';
+            document.getElementById('messages').appendChild(item);
+            updateUsers(data.users);
+            window.scrollTo(0, document.body.scrollHeight);
         });
 
         socket.on('user left', function(data) {
-            $('#messages').append($('<li>').text('*** ' + data.username + ' ha dejado el chat. ***'));
-            updateUsers(data.users, data.numUsers);
-            if ($('#recipient').val() === data.username) {
-                 setRecipient('general');
+            const item = document.createElement('li');
+            item.className = 'system-message';
+            item.textContent = data.username + ' ha abandonado el chat.';
+            document.getElementById('messages').appendChild(item);
+            updateUsers(data.users);
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+
+        socket.on('chat message', function(msg) {
+            const item = document.createElement('li');
+            item.textContent = msg;
+            document.getElementById('messages').appendChild(item);
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+       
+        socket.on('private message', function(data) {
+            const item = document.createElement('li');
+            item.className = 'dm-message';
+            item.textContent = data.msg;
+            document.getElementById('messages').appendChild(item);
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+
+        socket.on('login error', function(msg) {
+            alert('Error al intentar unirse: ' + msg);
+        });
+       
+        // Asegúrate de reemplazar "TU_CLAVE_DEL_SITIO_PUBLICA" con tu clave de reCAPTCHA
+        // Esto debe ir después de que todo el DOM esté cargado.
+        document.addEventListener('DOMContentLoaded', (event) => {
+            const script = document.querySelector('script[src*="recaptcha"]');
+            if (script) {
+                const public_key = script.src.split('render=')[1];
+                document.getElementById('login-box').querySelector('button').onclick = function() {
+                    const usernameInput = document.getElementById('username').value.trim();
+                    if (!usernameInput) {
+                        alert('Por favor, introduce un nombre de usuario.');
+                        return;
+                    }
+
+                    grecaptcha.ready(function() {
+                        grecaptcha.execute(public_key, {action: 'login'}).then(function(token) {
+                            currentUsername = usernameInput;
+                            socket.emit('add user', { username: currentUsername, token: token });
+                        });
+                    });
+                };
             }
         });
-        
-        setRecipient('general'); 
-    }
 
-    // Funciones de control de lista de usuarios...
-    function updateUsers(users, numUsers) {
-        $('#user-list').empty(); 
-        $('#num-users').text(numUsers); 
-        $('#user-list').append($('<li>').text('Chat General').attr('data-user', 'general').click(function() {
-            setRecipient('general');
-        }));
-        users.forEach(function(user) {
-            if (user !== username) { 
-                $('#user-list').append($('<li>').text(user).attr('data-user', user).click(function() {
-                    setRecipient(user);
-                }));
-            }
-        });
-    }
-
-    function setRecipient(recipient) {
-        $('#recipient').val(recipient); 
-        if (recipient === 'general') {
-            $('#m').attr('placeholder', 'Escribe un mensaje público (general)');
-        } else {
-            $('#m').attr('placeholder', 'DM para ' + recipient);
-        }
-        $('#user-list li').removeClass('selected');
-        $(`[data-user="${recipient}"]`).addClass('selected');
-    }
-</script>
-
+    </script>
 </body>
 </html>
