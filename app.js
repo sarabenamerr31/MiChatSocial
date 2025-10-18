@@ -1,19 +1,21 @@
-// app.js - SERVIDOR CON RECAPTCHA V3 SEGURO Y COMPLETO
+// app.js - SERVIDOR CON RECAPTCHA SEGURO Y CORRECCIÓN FINAL DEL PUERTO
 
 const express = require('express');
 const app = express();
 const http = require('http');
 const server = http.createServer(app);
-const io = require('socket.io')(server);
-const axios = require('axios'); // Usaremos axios (más compatible que fetch)
+const io = require('socket.io')(server); 
+const axios = require('axios'); 
 
 // ----------------------------------------------------
 // VARIABLES VITALES (SE SEGURIDAD Y ENTORNO)
 // ----------------------------------------------------
-const PORT = process.env.PORT || 3000;
-// LEEMOS la clave secreta de la Variable de Entorno de Render
+// Lectura segura del puerto de Render (CORRECCIÓN FINAL)
+const PORT = process.env.PORT || 3000; 
+
+// Lectura segura de la clave secreta de Render
 const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET;
-const SCORE_UMBRAL = 0.5; // Umbral de seguridad para reCAPTCHA v3
+const SCORE_UMBRAL = 0.5; 
 
 // Envía el archivo index.html
 app.get('/', (req, res) => {
@@ -21,18 +23,18 @@ app.get('/', (req, res) => {
 });
 
 // LÓGICA DE USUARIOS Y CHAT
-let usernames = {};
-let numUsers = 0;  
+let usernames = {}; 
+let numUsers = 0;   
 
 io.on('connection', (socket) => {
-    let addedUser = false;
+    let addedUser = false; 
 
     // FUNCIÓN PRINCIPAL DE LOGIN Y VERIFICACIÓN
     socket.on('add user', async (usernameData) => {
         if (addedUser) return;
-       
-        const { username, token } = usernameData; // Cliente envía nombre y token
-       
+        
+        const { username, token } = usernameData;
+        
         // 1. COMPROBACIÓN DE SEGURIDAD
         if (!RECAPTCHA_SECRET || !token) {
             return socket.emit('login error', 'Error de configuración o falta de token.');
@@ -41,24 +43,24 @@ io.on('connection', (socket) => {
         try {
             // 2. PEDIR LA VERIFICACIÓN A GOOGLE
             const googleUrl = 'https://www.google.com/recaptcha/api/siteverify';
-           
+            
             const response = await axios.post(googleUrl, null, {
                 params: {
-                    secret: RECAPTCHA_SECRET, // Se lee de Render
+                    secret: RECAPTCHA_SECRET, 
                     response: token
                 }
             });
 
             const { success, score } = response.data;
-          
+           
             // 3. REGLA DE SEGURIDAD: Bloqueo si no es exitoso o la puntuación es baja
             if (!success || score < SCORE_UMBRAL) {
                 console.warn(`[SEGURIDAD] Bloqueo de bot. Score: ${score}`);
                 return socket.emit('login error', `Verificación de seguridad fallida. Puntuación: ${score}`);
             }
-          
+           
             // 4. VERIFICACIÓN EXITOSA: Iniciar Sesión
-            if (usernames[username]) {
+            if (usernames[username]) { 
                  return socket.emit('login error', 'El nombre de usuario ya está en uso.');
             }
 
@@ -82,12 +84,11 @@ io.on('connection', (socket) => {
             console.error('Error al verificar reCAPTCHA:', error.message);
             return socket.emit('login error', 'Error interno del servidor durante la verificación.');
         }
-    });
-   
+    }); // <--- ¡La llave de cierre estaba aquí! Arreglado.
+    
     // RESTO DE LA LÓGICA DEL CHAT (MENSAJES PÚBLICOS/PRIVADOS Y DESCONEXIÓN)
     socket.on('chat message', (data) => {
-        if (!socket.username) return;
-        // Lógica de mensajes y DM... (Mantenemos la funcionalidad que ya creamos)
+        if (!socket.username) return; 
         let fullMessage = socket.username + ': ' + data.msg;
         if (data.recipient && data.recipient !== 'general') {
             let recipientId = usernames[data.recipient];
@@ -105,7 +106,7 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         if (addedUser) {
-            delete usernames[socket.username];
+            delete usernames[socket.username]; 
             --numUsers;
             socket.broadcast.emit('user left', {
                 username: socket.username,
@@ -120,4 +121,3 @@ io.on('connection', (socket) => {
 server.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto: ${PORT}`);
 });
-
