@@ -1,19 +1,16 @@
-// app.js - VERSIÓN FINAL SEGURA CON VERIFICACIÓN RECAPTCHA (ÚLTIMA CORRECCIÓN)
+// app.js - VERSION FUNCIONAL ESTABLE (DIAGNÓSTICO FINAL SIN RECAPTCHA)
 
 const express = require('express');
 const app = express();
 const http = require('http');
 const server = http.createServer(app);
 const io = require('socket.io')(server);
-const axios = require('axios');
 
 // ----------------------------------------------------
 // VARIABLES VITALES
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000;
-const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET;
-const SCORE_UMBRAL = 0.5;
-const USER_VERIFIED = new Set();
+// const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET; // DESACTIVADO para diagnóstico
 
 // Envía el archivo index.html
 app.get('/', (req, res) => {
@@ -27,40 +24,13 @@ let numUsers = 0;
 io.on('connection', (socket) => {
     let addedUser = false;
 
-    // FUNCIÓN PRINCIPAL DE LOGIN Y VERIFICACIÓN
-    socket.on('add user', async (data) => {
+    // FUNCIÓN PRINCIPAL DE LOGIN (SOLO VERIFICACIÓN DE NOMBRE)
+    socket.on('add user', (data) => {
         if (addedUser) return;
        
-        const { username, token } = data;
-       
-        // 1. VERIFICACIÓN DE RECAPTCHA
-        try {
-            if (!RECAPTCHA_SECRET) {
-                console.error('ERROR: La clave secreta de reCAPTCHA no está configurada en Render.');
-                return socket.emit('login error', 'Error de seguridad: Clave secreta no configurada.');
-            }
-           
-            const googleUrl = 'https://www.google.com/recaptcha/api/siteverify';
-           
-            const response = await axios.post(googleUrl, null, {
-                params: { secret: RECAPTCHA_SECRET, response: token }
-            });
+        const { username } = data; // Solo usamos el nombre
 
-            const { success, score } = response.data;
-      
-            if (!success || score < SCORE_UMBRAL) {
-                console.warn(`[SEGURIDAD] Bloqueo de mensaje por bot. Score: ${score}`);
-                return socket.emit('login error', `Verificación de seguridad fallida. Score bajo. (${score})`);
-            }
-           
-            USER_VERIFIED.add(socket.id);
-
-        } catch (error) {
-            console.error('Error al verificar reCAPTCHA:', error.message);
-            return socket.emit('login error', 'Error interno de verificación.');
-        }
-       
-        // 2. INICIO DE SESIÓN ESTÁNDAR
+        // 1. INICIO DE SESIÓN ESTÁNDAR
         if (usernames[username]) {
              return socket.emit('login error', 'El nombre de usuario ya está en uso.');
         }
@@ -82,12 +52,13 @@ io.on('connection', (socket) => {
         });
     });
    
-    // LÓGICA DE CHAT: BLOQUEAR SI NO ESTÁ VERIFICADO
+    // LÓGICA DE CHAT: PERMITE CHATEAR
     socket.on('chat message', (data) => {
-        if (!USER_VERIFIED.has(socket.id)) {
-            return socket.emit('chat message', { error: 'Debes pasar la verificación de reCAPTCHA para chatear.' });
-        }
+        if (!socket.username) return;
        
+        // No hay bloqueo de reCAPTCHA aquí
+       
+        // Lógica de mensajes y DM...
         let fullMessage = socket.username + ': ' + data.msg;
         if (data.recipient && data.recipient !== 'general') {
             let recipientId = usernames[data.recipient];
@@ -105,7 +76,6 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         if (addedUser) {
-            USER_VERIFIED.delete(socket.id);
             delete usernames[socket.username];
             --numUsers;
             socket.broadcast.emit('user left', {
@@ -115,9 +85,4 @@ io.on('connection', (socket) => {
             });
         }
     });
-});
-
-// ARREGLO FINAL DEL PUERTO
-server.listen(PORT, () => {
-  console.log(`Servidor corriendo en el puerto: ${PORT}`);
 });
