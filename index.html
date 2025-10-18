@@ -3,20 +3,20 @@
 <head>
     <title>Mi Chat Social (GMS)</title>
     <script src="https://www.google.com/recaptcha/api.js?render=6Lf-ju4rAAAAAH6B-ADkX-ttdN-49MX2HnolYSFU"></script>
-   
+    
     <style>
         /* CSS COMPLETO PARA EL DISEÑO DE LOGIN Y CHAT */
         body { margin: 0; padding-bottom: 3rem; font-family: sans-serif; display: flex; }
 
         /* Área de Login */
-        #login-area {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 1000;
+        #login-area { 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0, 0, 0, 0.9); 
+            z-index: 1000; 
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -44,21 +44,21 @@
         .error-message { color: yellow; background: red; padding: 5px; margin-top: 10px;}
 
         /* Estilo del Contenedor del Chat (Oculto al inicio) */
-        #chat-main { display: none; width: 100%; height: 100%; }
+        #chat-main { display: none; width: 100%; height: 100%; } 
         #chat-container { width: 75%; height: 100vh; overflow-y: scroll; border-right: 1px solid #ddd; padding-top: 10px; }
-       
+        
         /* Estilo del Sidebar de Usuarios */
         #sidebar { width: 25%; height: 100vh; background: #f8f8f8; padding: 10px; box-sizing: border-box; position: fixed; right: 0; top: 0; }
         #sidebar h3 { margin-top: 0; color: #555; }
         #user-list { list-style-type: none; padding: 0; }
-        #user-list li { padding: 5px 0; border-bottom: 1px dotted #ccc; font-size: 0.9em; font-weight: bold; color: #333; cursor: pointer;}
+        #user-list li { padding: 5px 0; border-bottom: 1px dotted #ccc; font-size: 0.9em; font-weight: bold; color: #333; cursor: pointer;} 
 
         /* Estilo de Mensajes */
         #messages { list-style-type: none; margin: 0; padding: 0 10px; }
         #messages li { padding: 5px 0; }
         #messages li:nth-child(odd) { background: #fafafa; }
         .private-message { background: #fff0f0; color: #cc0000; font-weight: bold; }
-       
+        
         /* Estilo de la caja de texto y botón */
         form { background: #333; padding: 3px; position: fixed; bottom: 0; left: 0; right: 25%; display: flex; height: 3rem; box-sizing: border-box; }
         #m { border: none; padding: 0 1rem; flex-grow: 1; border-radius: 2rem; margin: 0.25rem; }
@@ -75,7 +75,7 @@
         <div id="login-error-message" class="error-message" style="display:none;"></div>
     </div>
 
-    <div id="chat-main">
+    <div id="chat-main"> 
         <div id="chat-container">
             <ul id="messages"></ul>
         </div>
@@ -95,20 +95,20 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script>
-    var socket;
-    var username = '';
-    const RECAPTCHA_SITE_KEY = '6Lf-ju4rAAAAAH6B-ADkX-ttdN-49MX2HnolYSFU';
-   
+    var socket; 
+    var username = ''; 
+    const RECAPTCHA_SITE_KEY = '6Lf-ju4rAAAAAH6B-ADkX-ttdN-49MX2HnolYSFU'; 
+    
     // ===================================
     // 1. LÓGICA DE LOGIN CON RECAPTCHA V3
     // ===================================
 
-    $('#chat-main').hide();
+    $('#chat-main').hide(); 
 
     $('#start-chat-button').click(function() {
         $('#login-error-message').hide();
         const inputName = $('#username-input').val().trim();
-       
+        
         if (!inputName) {
             $('#login-error-message').text("Por favor, ingresa tu nombre.").show();
             return;
@@ -119,18 +119,18 @@
             grecaptcha.execute(RECAPTCHA_SITE_KEY, {action: 'login'})
             .then(function(token) {
                 username = inputName;
-               
-                // 2. Conectamos Socket.IO
-                socket = io();
-               
-                // 3. Configuramos todos los eventos del chat
-                setupChatEvents(socket);
+                
+                // 2. Conectamos Socket.IO INMEDIATAMENTE
+                socket = io(); 
+                
+                // 3. Configuramos todos los eventos de escucha del chat
+                setupChatEvents(socket); 
 
-                // 4. Enviamos el nombre Y el token de reCAPTCHA
+                // 4. Esperamos la conexión y enviamos el token
                 socket.on('connect', function() {
-                    $('#login-area').hide();
-                    $('#chat-main').show(); 
-                   
+                    $('#login-area').hide(); 
+                    $('#chat-main').show();  
+                    
                     socket.emit('add user', {
                         username: username,
                         token: token // Enviamos el token para que el servidor lo verifique
@@ -144,34 +144,35 @@
     socket.on('login error', (msg) => {
         $('#login-error-message').text(msg).show();
         $('#chat-main').hide();
-        $('#login-area').show();
+        $('#login-area').show(); 
     });
+
 
     // Permitir Enter para iniciar
     $('#username-input').keypress(function(e) {
-        if (e.which === 13) {
+        if (e.which === 13) { 
             $('#start-chat-button').click();
         }
     });
-   
+    
     // ===================================
     // 2. FUNCIÓN DE EVENTOS DE CHAT (LÓGICA)
     // ===================================
 
     function setupChatEvents(socket) {
         $('form').submit(function(e) {
-            e.preventDefault();
+            e.preventDefault(); 
             var message = $('#m').val();
-            var recipient = $('#recipient').val();
+            var recipient = $('#recipient').val(); 
 
-            if (!username) return;
+            if (!username) return; 
 
             if (message) {
                 var dataToSend = { msg: message, recipient: recipient };
                 socket.emit('chat message', dataToSend);
             }
 
-            $('#m').val('');
+            $('#m').val(''); 
             return false;
         });
 
@@ -181,7 +182,7 @@
             } else if (msg.error) {
                 $('#messages').append($('<li>').addClass('error-message').text('*** ERROR: ' + msg.error + ' ***'));
             }
-           
+            
             $("#chat-container").scrollTop($("#chat-container")[0].scrollHeight);
         });
 
@@ -196,7 +197,7 @@
             updateUsers(data.users, data.numUsers);
         });
 
-        // ESTE EVENTO DEBERÍA ARREGLAR LA LISTA
+        // ESTE EVENTO ARREGLA LA LISTA
         socket.on('user joined', function(data) {
             $('#messages').append($('<li>').text('*** ' + data.username + ' se ha unido al chat. ***'));
             updateUsers(data.users, data.numUsers);
@@ -209,19 +210,19 @@
                  setRecipient('general');
             }
         });
-       
-        setRecipient('general');
+        
+        setRecipient('general'); 
     }
 
     // Funciones de control de lista de usuarios...
     function updateUsers(users, numUsers) {
-        $('#user-list').empty();
-        $('#num-users').text(numUsers);
+        $('#user-list').empty(); 
+        $('#num-users').text(numUsers); 
         $('#user-list').append($('<li>').text('Chat General').attr('data-user', 'general').click(function() {
             setRecipient('general');
         }));
         users.forEach(function(user) {
-            if (user !== username) {
+            if (user !== username) { 
                 $('#user-list').append($('<li>').text(user).attr('data-user', user).click(function() {
                     setRecipient(user);
                 }));
@@ -230,7 +231,7 @@
     }
 
     function setRecipient(recipient) {
-        $('#recipient').val(recipient);
+        $('#recipient').val(recipient); 
         if (recipient === 'general') {
             $('#m').attr('placeholder', 'Escribe un mensaje público (general)');
         } else {
