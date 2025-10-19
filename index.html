@@ -2,12 +2,13 @@
 <html>
 <head>
     <title>Mi Chat Social (GMS)</title>
+    <script src="https://www.google.com/recaptcha/api.js?render=6LdlGu8rAAAAAADVsJ4klaA-xhz0OK-1-t_8PPima"></script>
     
     <style>
         /* CSS FINAL Y FUNCIONAL */
         body { margin: 0; padding-bottom: 3rem; font-family: sans-serif; display: flex; overflow-x: hidden; }
 
-        /* Área de Login: Arregla el fallo de la interfaz */
+        /* Área de Login */
         #login-area { 
             position: absolute; 
             top: 0; 
@@ -131,6 +132,7 @@
 <script>
     var socket; 
     var username = ''; 
+    const RECAPTCHA_SITE_KEY = '6LdlGu8rAAAAAADVsJ4klaA-xhz0OK-1-t_8PPima'; 
     
     // ===================================
     // 1. LÓGICA DE LOGIN ESTABLE Y SIMPLE
@@ -138,7 +140,7 @@
 
     $('#chat-main').hide(); 
 
-    // FUNCIÓN DE ENTRADA AL CHAT - CÓDIGO BÁSICO PARA CONEXIÓN
+    // FUNCIÓN DE ENTRADA AL CHAT - ARREGLO PARA RECAPTCHA
     $('#start-chat-button').click(function() {
         $('#login-error-message').hide();
         const inputName = $('#username-input').val().trim();
@@ -150,23 +152,27 @@
 
         username = inputName;
         
-        // 1. Conectamos Socket.IO
-        socket = io(); 
-        
-        // 2. Configuramos los eventos
-        setupChatEvents(socket); 
+        // 1. GENERAR TOKEN DE RECAPTCHA ANTES DE CONECTAR
+        grecaptcha.ready(function() {
+            grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'login' }).then(function(token) {
+                
+                // 2. Conectamos Socket.IO
+                socket = io(); 
+                setupChatEvents(socket); 
 
-        // 3. Al conectar, mostramos el chat y enviamos el nombre
-        socket.on('connect', function() {
-            $('#login-area').hide(); 
-            $('#chat-main').show();  
-            socket.emit('add user', { username: username });
-        });
-        
-        // 4. Manejamos errores
-        socket.on('connect_error', function(err) {
-            $('#login-error-message').text("Error de conexión con el servidor. Inténtalo de nuevo.").show();
-            if(socket) socket.disconnect();
+                // 3. Al conectar, mostramos el chat y enviamos el nombre Y EL TOKEN
+                socket.on('connect', function() {
+                    $('#login-area').hide(); 
+                    $('#chat-main').show();  
+                    socket.emit('add user', { username: username, token: token }); // Enviamos el token
+                });
+                
+                // 4. Manejamos errores
+                socket.on('connect_error', function(err) {
+                    $('#login-error-message').text("Error de conexión con el servidor. Inténtalo de nuevo.").show();
+                    if(socket) socket.disconnect();
+                });
+            });
         });
     });
 
