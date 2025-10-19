@@ -1,22 +1,22 @@
-// app.js - VERSIÓN FINAL CON RECAPTCHA (ESTABLE)
+// app.js - VERSIÓN FINAL CON RECAPTCHA (MÁXIMA GARANTÍA)
 
 const express = require('express');
 const app = express();
 const http = require('http');
 const server = http.createServer(app);
 const io = require('socket.io')(server); 
-const axios = require('axios'); // Asegúrate de tener 'npm install axios' ejecutado
+const axios = require('axios'); // Necesario para la verificación de Google
 
 // ----------------------------------------------------
 // VARIABLES VITALES 
 // ----------------------------------------------------
 const PORT = process.env.PORT || 3000; 
 const RECAPTCHA_SECRET = process.env.RECAPTCHA_SECRET; // Clave secreta de Render
-const SCORE_UMBRAL = 0.5; // Puntuación mínima de seguridad (ajustable)
+const SCORE_UMBRAL = 0.5; 
+const USER_VERIFIED = new Set(); 
 
 let usernames = {}; 
-let numUsers = 0; 
-const USER_VERIFIED = new Set(); 
+let numUsers = 0;   
 
 // Envía el archivo index.html
 app.get('/', (req, res) => {
@@ -26,21 +26,22 @@ app.get('/', (req, res) => {
 io.on('connection', (socket) => {
     let addedUser = false; 
 
-    // FUNCIÓN PRINCIPAL DE LOGIN Y VERIFICACIÓN
+    // FUNCIÓN PRINCIPAL DE LOGIN Y VERIFICACIÓN (USANDO ASYNC)
     socket.on('add user', async (data) => {
         if (addedUser) return;
         
-        const { username, token } = data; // Recibe el token de seguridad
+        const { username, token } = data;
         
         // 1. VERIFICACIÓN DE RECAPTCHA 
         try {
             if (!RECAPTCHA_SECRET) {
                 console.error('ERROR: La clave secreta de reCAPTCHA no está configurada en Render.');
-                return socket.emit('login error', 'Error de seguridad: Clave secreta del servidor no configurada.');
+                return socket.emit('login error', 'Error de seguridad: Clave secreta no configurada.');
             } 
             
             const googleUrl = 'https://www.google.com/recaptcha/api/siteverify';
             
+            // Verificación asíncrona
             const response = await axios.post(googleUrl, null, {
                 params: { secret: RECAPTCHA_SECRET, response: token }
             });
@@ -48,8 +49,8 @@ io.on('connection', (socket) => {
             const { success, score } = response.data;
        
             if (!success || score < SCORE_UMBRAL) {
-                console.warn(`[SEGURIDAD] Bloqueo de login. Usuario: ${username}, Score: ${score}`);
-                return socket.emit('login error', `Verificación de seguridad fallida. Score bajo. (${score.toFixed(2)})`);
+                console.warn(`[SEGURIDAD] Bloqueo de mensaje. Usuario: ${username}, Score: ${score}`);
+                return socket.emit('login error', `Verificación fallida. Score bajo. (${score.toFixed(2)})`);
             }
             
             USER_VERIFIED.add(socket.id); 
@@ -81,17 +82,16 @@ io.on('connection', (socket) => {
         });
     });
 
-    // LÓGICA DE CHAT: CHAT PÚBLICO Y PRIVADO (DM)
+    // LÓGICA DE CHAT: BLOQUEAR SI NO ESTÁ VERIFICADO
     socket.on('chat message', (data) => {
-        if (!socket.username) return; 
+        if (!USER_VERIFIED.has(socket.id)) {
+            return socket.emit('chat message', { error: 'Debes pasar la verificación de reCAPTCHA para chatear.' });
+        }
         
         let fullMessage = socket.username + ': ' + data.msg;
-        
         if (data.recipient && data.recipient !== 'general') {
-            // Mensaje privado (DM)
             let recipientId = usernames[data.recipient];
             let senderId = socket.id;
-            
             if (recipientId) {
                 io.to(recipientId).emit('private message', { msg: `(DM de ${socket.username}): ${data.msg}`, sender: socket.username });
                 io.to(senderId).emit('private message', { msg: `(DM para ${data.recipient}): ${data.msg}`, sender: socket.username });
@@ -99,7 +99,6 @@ io.on('connection', (socket) => {
                 socket.emit('chat message', {error: 'Usuario desconectado.'});
             }
         } else {
-            // Mensaje para el chat general
             io.emit('chat message', fullMessage);
         }
     });
@@ -107,9 +106,9 @@ io.on('connection', (socket) => {
     // LÓGICA DE DESCONEXIÓN
     socket.on('disconnect', () => {
         if (addedUser) {
+            USER_VERIFIED.delete(socket.id); 
             delete usernames[socket.username]; 
             --numUsers;
-            // Avisa a todos de que el usuario se ha ido
             socket.broadcast.emit('user left', {
                 username: socket.username,
                 numUsers: numUsers,

@@ -135,12 +135,12 @@
     const RECAPTCHA_SITE_KEY = '6LdlGu8rAAAAAADVsJ4klaA-xhz0OK-1-t_8PPima'; 
     
     // ===================================
-    // 1. LÓGICA DE LOGIN ESTABLE Y SIMPLE
+    // 1. LÓGICA DE LOGIN ESTABLE CON RECAPTCHA
     // ===================================
 
     $('#chat-main').hide(); 
 
-    // FUNCIÓN DE ENTRADA AL CHAT - ARREGLO PARA RECAPTCHA
+    // FUNCIÓN DE ENTRADA AL CHAT - ARREGLO PARA CONEXIÓN SIMPLE
     $('#start-chat-button').click(function() {
         $('#login-error-message').hide();
         const inputName = $('#username-input').val().trim();
